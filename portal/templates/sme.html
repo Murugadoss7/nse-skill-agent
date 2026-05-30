@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.sme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.card h3 { margin: 0 0 8px 0; font-size: 14px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.card .value { font-size: 28px; font-weight: 700; }
+.signal-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.signal-card .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.signal-card .date { font-size: 12px; color: var(--text-dim); }
+.bias-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.bias-BULLISH { background: #1a3a2a; color: #4ade80; }
+.bias-BEARISH { background: #3a1a1a; color: #f87171; }
+.bias-NEUTRAL { background: #2a2a2a; color: #fbbf24; }
+.bias-MILD { background: #1a2a3a; color: #60a5fa; }
+.metadata-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.tag { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 11px; background: var(--bg); color: var(--text-dim); }
+.factor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.factor-item { background: var(--bg); border-radius: 4px; padding: 8px; text-align: center; }
+.factor-item .name { font-size: 11px; color: var(--text-dim); }
+.factor-item .score { font-size: 18px; font-weight: 700; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } }
+.accuracy-bar { height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; margin: 4px 0; }
+.accuracy-bar .fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+.correct { color: #4ade80; }
+.wrong { color: #f87171; }
+</style>
+
+<h2>🧠 SME Intelligence Dashboard</h2>
+
+<div class="sme-grid">
+    <div class="card">
+        <h3>Latest Bias</h3>
+        <div class="value">{{ latest_signal.signal.bias }}</div>
+        <div style="font-size:12px;color:var(--text-dim)">
+            Conf: {{ latest_signal.signal.confidence }}/10 | Score: {{ latest_signal.signal.score }}
+        </div>
+    </div>
+    <div class="card">
+        <h3>Environment</h3>
+        <div class="value" style="font-size:20px;">
+            ✦ {{ env_summary.nifty }}</div>
+        <div style="font-size:12px;color:var(--text-dim)">
+            VIX {{ env_summary.vix }} | Crude ${{ env_summary.crude }} | ₹{{ env_summary.usd_inr }}/$
+        </div>
+    </div>
+    <div class="card">
+        <h3>Accuracy (30d)</h3>
+        <div class="value" style="color:{% if accuracy_30d > 50 %}#4ade80{% else %}#f87171{% endif %}">
+            {{ accuracy_30d }}%
+        </div>
+        <div style="font-size:12px;color:var(--text-dim)">
+            {{ accuracy_count.correct }}/{{ accuracy_count.total }} correct
+        </div>
+    </div>
+    <div class="card">
+        <h3>Vault Knowledge</h3>
+        <div class="value">{{ vault_stats.techniques }}</div>
+        <div style="font-size:12px;color:var(--text-dim)">
+            {{ vault_stats.learnings }} learnings | {{ vault_stats.proposals }} open proposals
+        </div>
+    </div>
+</div>
+
+<div class="two-col">
+    <div>
+        <h3>🔬 Latest Signal Analysis</h3>
+        <div class="signal-card">
+            <div class="header">
+                <span class="bias-badge bias-{{ latest_signal.signal.bias }}">{{ latest_signal.signal.bias }}</span>
+                <span class="date">{{ latest_signal.data.date }}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="tag">Confidence: {{ latest_signal.signal.confidence }}/10</span>
+                <span class="tag">Score: {{ latest_signal.signal.score }}</span>
+                <span class="tag">Nifty: {{ latest_signal.data.nifty.price }}</span>
+            </div>
+            {% set sme = latest_signal.get('sme_metadata', {}) %}
+            {% if sme %}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;">
+                <strong style="color:var(--text-dim);font-size:11px;">SME METADATA</strong>
+                {% if sme.sme_techniques_used %}
+                <div style="margin-top:4px;">
+                    Techniques: {% for t in sme.sme_techniques_used %}<span class="tag">{{ t }}</span> {% endfor %}
+                </div>
+                {% endif %}
+                {% if sme.sme_tools_used %}
+                <div>
+                    Tools: {% for t in sme.sme_tools_used %}<span class="tag">{{ t }}</span> {% endfor %}
+                </div>
+                {% endif %}
+                {% if sme.sme_conviction %}
+                <div>Conviction: <strong>{{ sme.sme_conviction }}/10</strong> | Horizon: {{ sme.sme_horizon }}</div>
+                {% endif %}
+                {% if sme.failure_analysis %}
+                <div style="color:#f87171;margin-top:4px;">❌ Failed: {{ sme.failure_root_cause or 'Unknown' }}</div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% set verification = latest_signal.get('verification', {}) %}
+            {% if verification and verification.get('direction_correct') is not none %}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;">
+                <strong style="color:var(--text-dim);font-size:11px;">VERIFICATION</strong>
+                <div style="margin-top:4px;">
+                    {% if verification.direction_correct %}
+                    <span class="correct">✅ Correct</span>
+                    {% else %}
+                    <span class="wrong">❌ Wrong</span>
+                    {% endif %}
+                    | Actual: {{ verification.actual.bias }} ({{ verification.actual.change_pct }}%)
+                    | Score: {{ verification.accuracy_score }}/5
+                </div>
+            </div>
+            {% else %}
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text-dim);">
+                ⏳ Awaiting verification (4PM)
+            </div>
+            {% endif %}
+        </div>
+
+        <h3>📊 Factor Breakdown</h3>
+        <div class="factor-grid">
+            {% for f in latest_signal.breakdown %}
+            <div class="factor-item">
+                <div class="name">{{ f.factor|replace('_', ' ') }}</div>
+                <div class="score" style="color:{% if f.score > 0 %}#4ade80{% elif f.score < 0 %}#f87171{% else %}#9ca3af{% endif %}">
+                    {{ f.score }}
+                </div>
+                <div style="font-size:10px;color:var(--text-dim)">{{ f.contribution }}</div>
+            </div>
+            {% endfor %}
+            {% for i in range(8 - latest_signal.breakdown|length) %}
+            <div class="factor-item" style="opacity:0.3">
+                <div class="name">—</div>
+                <div class="score">0</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div>
+        <h3>📈 Factor Accuracy (Last 30 Days)</h3>
+        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            {% for f in factor_accuracy %}
+            <div style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span>{{ f.name|replace('_', ' ') }}</span>
+                    <span style="color:{% if f.accuracy > 60 %}#4ade80{% elif f.accuracy > 40 %}#fbbf24{% else %}#f87171{% endif %}">
+                        {{ f.accuracy }}%
+                    </span>
+                </div>
+                <div class="accuracy-bar">
+                    <div class="fill" style="width:{{ f.accuracy }}%;background:{% if f.accuracy > 60 %}#4ade80{% elif f.accuracy > 40 %}#fbbf24{% else %}#f87171{% endif %};"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <h3 style="margin-top:16px;">💡 Active Proposals</h3>
+        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            {% if proposals %}
+            <table>
+                <tr><th>Date</th><th>Title</th><th>Status</th></tr>
+                {% for p in proposals %}
+                <tr>
+                    <td style="font-size:11px;color:var(--text-dim)">{{ p.date[:10] }}</td>
+                    <td>{{ p.title[:40] }}</td>
+                    <td><span class="tag">{{ p.status }}</span></td>
+                </tr>
+                {% endfor %}
+            </table>
+            {% else %}
+            <div style="color:var(--text-dim);font-size:13px;">No open proposals</div>
+            {% endif %}
+        </div>
+
+        <h3 style="margin-top:16px;">📚 Recent Vault Activity</h3>
+        <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <table>
+                <tr><th>Section</th><th>Count</th><th>Latest</th></tr>
+                <tr><td>01-Techniques</td><td>{{ vault_stats.techniques }}</td><td style="font-size:11px;color:var(--text-dim)">{{ vault_stats.latest_technique }}</td></tr>
+                <tr><td>02-Backtests</td><td>{{ vault_stats.backtests }}</td><td style="font-size:11px;color:var(--text-dim)">{{ vault_stats.latest_backtest }}</td></tr>
+                <tr><td>03-Factors</td><td>{{ vault_stats.factors }}</td><td>—</td></tr>
+                <tr><td>04-History</td><td>{{ vault_stats.history_reports }}</td><td style="font-size:11px;color:var(--text-dim)">{{ vault_stats.latest_history }}</td></tr>
+                <tr><td>05-Proposals</td><td>{{ vault_stats.proposals }}</td><td style="font-size:11px;color:var(--text-dim)">{{ vault_stats.open_proposals }} open</td></tr>
+                <tr><td>06-Learnings</td><td>{{ vault_stats.learnings }}</td><td style="font-size:11px;color:var(--text-dim)">{{ vault_stats.latest_learning }}</td></tr>
+            </table>
+        </div>
+    </div>
+</div>
+
+<h3 style="margin-top:20px;">📋 Accuracy History (Last 10)</h3>
+<div style="background:var(--card-bg);border:1px solid var(--border);border-radius:8px;padding:12px;overflow-x:auto;">
+    <table>
+        <tr>
+            <th>Date</th>
+            <th>Bias</th>
+            <th>Actual</th>
+            <th>Conf</th>
+            <th>Score</th>
+            <th>Result</th>
+            <th>Accuracy</th>
+            <th>Techniques</th>
+        </tr>
+        {% for s in recent_signals %}
+        <tr>
+            <td style="font-size:11px;color:var(--text-dim)">{{ s.data.date }}</td>
+            <td><span class="bias-badge bias-{{ s.signal.bias }}" style="font-size:10px;">{{ s.signal.bias }}</span></td>
+            <td>
+                {% set v = s.get('verification', {}) %}
+                {% if v.get('actual') %}
+                <span class="bias-badge bias-{{ v.actual.bias }}" style="font-size:10px;">{{ v.actual.bias }}</span>
+                {% else %}
+                <span style="color:var(--text-dim)">—</span>
+                {% endif %}
+            </td>
+            <td>{{ s.signal.confidence }}/10</td>
+            <td>{{ s.signal.score }}</td>
+            <td>
+                {% if v.get('direction_correct') is true %}
+                <span class="correct">✅</span>
+                {% elif v.get('direction_correct') is false %}
+                <span class="wrong">❌</span>
+                {% else %}
+                <span style="color:var(--text-dim)">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if v.get('accuracy_score') is not none %}
+                {{ v.accuracy_score }}/5
+                {% else %}
+                <span style="color:var(--text-dim)">—</span>
+                {% endif %}
+            </td>
+            <td>
+                {% set m = s.get('sme_metadata', {}) %}
+                {% if m.get('sme_techniques_used') %}
+                {% for t in m.sme_techniques_used %}
+                <span class="tag">{{ t }}</span>
+                {% endfor %}
+                {% else %}
+                <span style="color:var(--text-dim);font-size:11px;">—</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<script>
+setTimeout(() => location.reload(), 120000);
+</script>
+{% endblock %}
